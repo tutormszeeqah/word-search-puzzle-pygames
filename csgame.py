@@ -1,246 +1,185 @@
-import streamlit as st
+import random
+import string
 import time
-import pandas as pd
 import gspread
 from google.oauth2.service_account import Credentials
+import streamlit as st
 
-# 1. PAGE CONFIGURATION & CUSTOM CSS STYLING
+# Configure page layout
 st.set_page_config(
-    page_title="CIE 9618 CS Word Search Portal",
+    page_title="CIE 9618 Interactive Word Search",
     page_icon="🧩",
     layout="wide"
 )
 
-# Custom CSS for Gold, Silver, Bronze podium boxes
+# Custom CSS for uniform cell styling & active highlights
 st.markdown("""
 <style>
-    .podium-box {
-        border-radius: 10px;
-        padding: 15px;
-        text-align: center;
-        color: white;
-        font-weight: bold;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        margin-bottom: 15px;
+    /* Styling for grid letter buttons */
+    div.stButton > button {
+        width: 100% !important;
+        height: 48px !important;
+        font-size: 18px !important;
+        font-weight: bold !important;
+        border-radius: 6px !important;
+        border: 2px solid #3182ce !important;
+        color: #1a202c !important;
+        background-color: #ffffff !important;
+        padding: 0px !important;
     }
-    .gold { background: linear-gradient(135deg, #FFD700, #FFA500); color: #333; }
-    .silver { background: linear-gradient(135deg, #C0C0C0, #808080); color: #fff; }
-    .bronze { background: linear-gradient(135deg, #CD7F32, #8B4513); color: #fff; }
+    div.stButton > button:hover {
+        background-color: #ebf8ff !important;
+        border-color: #2b6cb0 !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
-# 2. GOOGLE SHEETS CONNECTION & DATA ENGINE
+# Google Sheets Setup
 SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets",
     "https://www.googleapis.com/auth/drive"
 ]
 
-def get_sheet_client():
-    """Connects to Google Sheets using Streamlit Secrets."""
-    try:
-        if "gcp_service_account" in st.secrets:
-            creds = Credentials.from_service_account_info(st.secrets["gcp_service_account"], scopes=SCOPES)
-            client = gspread.authorize(creds)
-            return client.open("CIE_9618_Leaderboard").sheet1
-    except Exception as e:
-        return None
-    return None
+@st.cache_resource
+def init_google_sheet():
+    """Authenticates with Google Sheets API using Streamlit secrets."""
+    creds_dict = st.secrets["gcp_service_account"]
+    creds = Credentials.from_service_account_info(creds_dict, scopes=SCOPES)
+    client = gspread.authorize(creds)
+    return client.open("CIE-Leaderscore-Board").worksheet("COMPSCI")
 
-def update_leaderboard(player_name, topic, duration):
-    """Saves or updates player score in Google Sheets (replaces if better time)."""
-    sheet = get_sheet_client()
-    if not sheet:
-        return
-
-    records = sheet.get_all_records()
-    now_str = time.strftime("%Y-%m-%d %H:%M:%S")
-    
-    player_found = False
-    for i, row in enumerate(records, start=2): # Row 1 is header
-        if str(row.get("Player Name")).strip().lower() == player_name.strip().lower():
-            player_found = True
-            existing_time = float(row.get("Duration (seconds)", 999999))
-            if duration < existing_time:
-                sheet.update_cell(i, 2, topic)
-                sheet.update_cell(i, 3, round(duration, 2))
-                sheet.update_cell(i, 4, now_str)
-            break
-            
-    if not player_found:
-        sheet.append_row([player_name, topic, round(duration, 2), now_str])
-
-def fetch_leaderboard():
-    """Fetches records from Google Sheets and returns sorted Pandas DataFrame."""
-    sheet = get_sheet_client()
-    if not sheet:
-        return pd.DataFrame(columns=["Player Name", "Topic", "Duration (seconds)", "Timestamp"])
-
-    records = sheet.get_all_records()
-    if not records:
-        return pd.DataFrame(columns=["Player Name", "Topic", "Duration (seconds)", "Timestamp"])
-    
-    df = pd.DataFrame(records)
-    df["Duration (seconds)"] = pd.to_numeric(df["Duration (seconds)"])
-    return df.sort_values(by="Duration (seconds)", ascending=True).reset_index(drop=True)
-
-# 3. GAME DATA & SYLLABUS TOPICS
-SYLLABUS_TOPICS = {
-    "Topic 1: Information Representation": [
-        {"clue": "Base-16 positional number system used in low-level programming.", "keyword": "HEXADECIMAL"},
-        {"clue": "Volatile main memory used for temporary working data storage.", "keyword": "RAM"},
-        {"clue": "Data transmission where bits travel sequentially one by one.", "keyword": "SERIAL"}
-    ],
-    "Topic 2: Communication and Networking": [
-        {"clue": "Global system of interconnected computer networks.", "keyword": "INTERNET"},
-        {"clue": "Unique numerical identifier assigned to every network device.", "keyword": "IPADDRESS"},
-        {"clue": "Rules governing communication and data transfer between systems.", "keyword": "PROTOCOL"}
-    ]
+# Target vocabulary for the topic
+WORD_DATA = {
+    "HEXADECIMAL": "Base-16 positional number system used in low-level programming.",
+    "RAM": "Volatile main memory used for temporary working data storage.",
+    "BANDWIDTH": "The maximum data transfer rate across a network path."
 }
 
-# 4. SESSION STATE INITIALIZATION
-if "player_name" not in st.session_state:
-    st.session_state.player_name = ""
-if "game_started" not in st.session_state:
-    st.session_state.game_started = False
-if "is_paused" not in st.session_state:
-    st.session_state.is_paused = False
-if "start_time" not in st.session_state:
-    st.session_state.start_time = 0.0
-if "accumulated_time" not in st.session_state:
-    st.session_state.accumulated_time = 0.0
-if "current_topic" not in st.session_state:
-    st.session_state.current_topic = list(SYLLABUS_TOPICS.keys())[0]
-if "solved_clues" not in st.session_state:
-    st.session_state.solved_clues = set()
+def calculate_dynamic_grid_size(words):
+    """Calculates grid dimensions based on the longest word length."""
+    max_len = max(len(w) for w in words)
+    # Add a buffer of 2 cells so words aren't squished against edges
+    return max(max_len + 2, 8)
 
-# 5. SIDEBAR & MAIN CONTROLS
-st.sidebar.title("🎮 Student Portal")
-name_input = st.sidebar.text_input("Enter Student Name:", value=st.session_state.player_name, disabled=st.session_state.game_started)
-if name_input:
-    st.session_state.player_name = name_input
-
-selected_topic = st.sidebar.selectbox("Choose 9618 Syllabus Topic:", list(SYLLABUS_TOPICS.keys()), disabled=st.session_state.game_started)
-st.session_state.current_topic = selected_topic
-
-st.title("🧩 CIE 9618 Computer Science Game Portal")
-
-if not st.session_state.player_name:
-    st.warning("⚠️ Please enter your name in the sidebar to unlock game controls.")
-else:
-    c1, c2, c3, c4 = st.columns(4)
-    with c1:
-        if st.button("▶️ PLAY", use_container_width=True, disabled=st.session_state.game_started):
-            st.session_state.game_started = True
-            st.session_state.is_paused = False
-            st.session_state.start_time = time.time()
-            st.session_state.accumulated_time = 0.0
-            st.session_state.solved_clues = set()
-            st.rerun()
-
-    with c2:
-        if st.session_state.game_started:
-            if not st.session_state.is_paused:
-                if st.button("⏸️ PAUSE", use_container_width=True):
-                    st.session_state.is_paused = True
-                    st.session_state.accumulated_time += time.time() - st.session_state.start_time
-                    st.rerun()
-            else:
-                if st.button("▶️ RESUME", use_container_width=True):
-                    st.session_state.is_paused = False
-                    st.session_state.start_time = time.time()
-                    st.rerun()
-
-    with c3:
-        if st.button("❌ QUIT", use_container_width=True, disabled=not st.session_state.game_started):
-            st.session_state.game_started = False
-            st.session_state.is_paused = False
-            st.session_state.accumulated_time = 0.0
-            st.rerun()
-
-    with c4:
-        if st.button("⏭️ NEXT LEVEL", use_container_width=True):
-            topics = list(SYLLABUS_TOPICS.keys())
-            idx = (topics.index(st.session_state.current_topic) + 1) % len(topics)
-            st.session_state.current_topic = topics[idx]
-            st.session_state.game_started = False
-            st.session_state.accumulated_time = 0.0
-            st.rerun()
-
-    st.markdown("---")
-
-    # 6. GAMEPLAY ENGINE & TIMER
-    if st.session_state.game_started:
-        if st.session_state.is_paused:
-            st.info("⏸️ Game is Paused. Click RESUME to continue.")
-        else:
-            elapsed = st.session_state.accumulated_time + (time.time() - st.session_state.start_time)
-            st.metric(label="⏱️ Live Time Duration", value=f"{elapsed:.1f} seconds")
-
-            st.subheader(f"Topic: {st.session_state.current_topic}")
-            clues = SYLLABUS_TOPICS[st.session_state.current_topic]
-            
-            for idx, item in enumerate(clues, 1):
-                col_clue, col_input = st.columns([3, 1])
-                with col_clue:
-                    st.write(f"**{idx}.** {item['clue']}")
-                with col_input:
-                    ans = st.text_input(f"Answer #{idx}", key=f"q_{idx}").strip().upper()
-                    if ans == item['keyword']:
-                        st.session_state.solved_clues.add(item['keyword'])
-                        st.success("✓ Correct!")
-
-            if len(st.session_state.solved_clues) == len(clues):
-                final_time = st.session_state.accumulated_time + (time.time() - st.session_state.start_time)
-                st.session_state.game_started = False
+def create_word_search(words, grid_size):
+    """Generates a grid_size x grid_size matrix filled with hidden words & random filler letters."""
+    grid = [["" for _ in range(grid_size)] for _ in range(grid_size)]
+    
+    # Simple horizontal placement
+    for idx, word in enumerate(words):
+        row = idx * 2  # Place words on alternating rows
+        if row < grid_size:
+            max_start_col = grid_size - len(word)
+            start_col = random.randint(0, max_start_col)
+            for c_idx, char in enumerate(word):
+                grid[row][start_col + c_idx] = char
                 
-                st.balloons()
-                st.success(f"🎉 Level Complete! Final Duration: {final_time:.2f} seconds.")
-                update_leaderboard(st.session_state.player_name, st.session_state.current_topic, final_time)
+    # Fill empty spots with random letters
+    for r in range(grid_size):
+        for c in range(grid_size):
+            if grid[r][c] == "":
+                grid[r][c] = random.choice(string.ascii_uppercase)
+                
+    return grid
+
+# Calculate dynamic size based on current word list
+GRID_SIZE = calculate_dynamic_grid_size(list(WORD_DATA.keys()))
+
+# Session State Initialization
+if "start_time" not in st.session_state:
+    st.session_state.start_time = time.time()
+
+if "grid" not in st.session_state:
+    st.session_state.grid = create_word_search(list(WORD_DATA.keys()), GRID_SIZE)
+
+if "selected_cells" not in st.session_state:
+    # Stores selected coordinates as a set: {(row, col), ...}
+    st.session_state.selected_cells = set()
+
+# Main Header & Controls
+st.title("🧩 CIE 9618 Interactive Word Search")
+
+ctrl_col1, ctrl_col2, ctrl_col3 = st.columns([1, 1, 2])
+with ctrl_col1:
+    if st.button("🔄 RESTART GAME"):
+        st.session_state.start_time = time.time()
+        st.session_state.grid = create_word_search(list(WORD_DATA.keys()), GRID_SIZE)
+        st.session_state.selected_cells = set()
+        st.rerun()
+
+with ctrl_col2:
+    if st.button("🧹 CLEAR HIGHLIGHTS"):
+        st.session_state.selected_cells = set()
+        st.rerun()
+
+# Timer Display
+elapsed_time = round(time.time() - st.session_state.start_time, 1)
+st.metric("⏱ Live Time Duration", f"{elapsed_time} seconds")
+
+st.markdown("---")
+
+# Main Page Layout: Dynamic Grid (Left) | Clues & Inputs (Right)
+col_grid, col_clues = st.columns([1.2, 1])
+
+with col_grid:
+    st.subheader(f"🔠 Puzzle Grid ({GRID_SIZE} × {GRID_SIZE})")
+    st.caption("Click on letter cells to highlight them as you find words!")
+
+    # Render dynamic button grid using Streamlit columns
+    for r in range(GRID_SIZE):
+        cols = st.columns(GRID_SIZE)
+        for c in range(GRID_SIZE):
+            letter = st.session_state.grid[r][c]
+            cell_key = f"cell_{r}_{c}"
+            is_highlighted = (r, c) in st.session_state.selected_cells
+
+            # Use emoji or prefix indicator for highlighted state
+            button_label = f"⭐ {letter}" if is_highlighted else letter
+
+            if cols[c].button(button_label, key=cell_key):
+                # Toggle highlight state on click
+                if (r, c) in st.session_state.selected_cells:
+                    st.session_state.selected_cells.remove((r, c))
+                else:
+                    st.session_state.selected_cells.add((r, c))
                 st.rerun()
 
-    # 7. LEADERBOARD DISPLAY (PODIUM & LIST)
-    st.markdown("---")
-    st.header("🏆 Leaderboard (Shortest Time Wins)")
+with col_clues:
+    st.subheader("💡 Clues & Word Submission")
+    user_answers = {}
 
-    df_ranks = fetch_leaderboard()
+    with st.form("leaderboard_form"):
+        player_name = st.text_input("Player Name:", value="Student 1")
+        
+        for idx, (word, clue) in enumerate(WORD_DATA.items(), 1):
+            st.markdown(f"**{idx}. {clue}**")
+            user_answers[word] = st.text_input(
+                f"Enter Word #{idx}", 
+                key=f"ans_{idx}"
+            ).strip().upper()
+            
+        submit = st.form_submit_button("Submit Answers & Record Score")
 
-    if not df_ranks.empty:
-        top_cols = st.columns(3)
-        if len(df_ranks) >= 1:
-            p1 = df_ranks.iloc[0]
-            with top_cols[0]:
-                st.markdown(f"""
-                <div class="podium-box gold">
-                    <h3>🥇 1st Place</h3>
-                    <h2>{p1['Player Name']}</h2>
-                    <p>{p1['Duration (seconds)']}s ({p1['Topic']})</p>
-                </div>
-                """, unsafe_allow_html=True)
+    if submit:
+        # Check submitted answers against dictionary keys
+        correct_answers = sum(1 for w, ans in user_answers.items() if ans == w)
 
-        if len(df_ranks) >= 2:
-            p2 = df_ranks.iloc[1]
-            with top_cols[1]:
-                st.markdown(f"""
-                <div class="podium-box silver">
-                    <h3>🥈 2nd Place</h3>
-                    <h2>{p2['Player Name']}</h2>
-                    <p>{p2['Duration (seconds)']}s ({p2['Topic']})</p>
-                </div>
-                """, unsafe_allow_html=True)
-
-        if len(df_ranks) >= 3:
-            p3 = df_ranks.iloc[2]
-            with top_cols[2]:
-                st.markdown(f"""
-                <div class="podium-box bronze">
-                    <h3>🥉 3rd Place</h3>
-                    <h2>{p3['Player Name']}</h2>
-                    <p>{p3['Duration (seconds)']}s ({p3['Topic']})</p>
-                </div>
-                """, unsafe_allow_html=True)
-
-        if len(df_ranks) > 3:
-            st.subheader("📊 Remaining Rankings")
-            df_remaining = df_ranks.iloc[3:].copy()
-            df_remaining.index = range(4, 4 + len(df_remaining))
-            st.table(df_remaining[["Player Name", "Topic", "Duration (seconds)", "Timestamp"]])
+        if correct_answers == len(WORD_DATA):
+            st.balloons()
+            st.success(f"🎉 Excellent! All words found in {elapsed_time} seconds!")
+            
+            # Send results to Google Sheets database
+            try:
+                sheet = init_google_sheet()
+                timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
+                sheet.append_row([
+                    player_name,
+                    "Topic 1: Information Representation",
+                    elapsed_time,
+                    timestamp
+                ])
+                st.info("Score recorded on Google Sheets Leaderboard!")
+            except Exception as e:
+                st.error(f"Failed to record score: {e}")
+        else:
+            st.warning(f"You got {correct_answers}/{len(WORD_DATA)} correct. Keep checking the grid!")
