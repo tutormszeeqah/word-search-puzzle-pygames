@@ -3,13 +3,17 @@ import string
 import time
 import gspread
 from google.oauth2.service_account import Credentials
+import pandas as pd
 import streamlit as st
 
 # Configure Streamlit page settings
-st.set_page_config(page_title="CIE 9618 Word Search", page_icon="🧩", layout="wide")
+st.set_page_config(
+    page_title="CIE 9618 Word Search", page_icon="🧩", layout="wide"
+)
 
-# Apply CSS for square wireframe cells and primary highlight states
-st.markdown("""
+# Apply CSS for square wireframe cells and custom button states
+st.markdown(
+    """
 <style>
     /* Compact zero-gap row spacing for wireframe grid */
     div[data-testid="stHorizontalBlock"] {
@@ -44,13 +48,16 @@ st.markdown("""
         border-color: #000000 !important;
     }
 </style>
-""", unsafe_allow_html=True)
+""",
+    unsafe_allow_html=True,
+)
 
 # Google Sheets API Authentication setup
 SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets",
-    "https://www.googleapis.com/auth/drive"
+    "https://www.googleapis.com/auth/drive",
 ]
+
 
 @st.cache_resource
 def init_google_sheet():
@@ -60,53 +67,62 @@ def init_google_sheet():
     client = gspread.authorize(creds)
     return client.open("CIE-Leaderscore-Board").worksheet("COMPSCI")
 
-# Vocabulary & Clues Database
+
+# Vocabulary & Clues Database for Multiple Topics
 TOPIC_DATA = {
     "Topic 1: Information Representation": {
         "MEDIA": "Composed of sound and images.",
         "CACHE": "Fastest storage access.",
         "BIT": "The smallest unit stored in computer.",
-    }
+    },
+    "Topic 2: Communication": {
+        "ROUTER": "Directs data packets across networks.",
+        "BANDWIDTH": "Data transfer capacity rate.",
+        "SERVER": "Provides resources or services to clients.",
+    },
+    "Topic 3: Hardware": {
+        "RAM": "Volatile temporary working storage.",
+        "ROM": "Non-volatile memory holding boot instructions.",
+        "REGISTER": "High-speed temporary processor storage.",
+    },
+    "Topic 4: Processor Fundamentals": {
+        "ALU": "Performs arithmetic and logic operations.",
+        "BUS": "Parallel wires transferring data/signals.",
+        "FETCH": "First step of the CPU instruction cycle.",
+    },
 }
 
+
 def generate_multidirectional_grid(words, grid_size=7):
-    """
-    Generates a grid placing words in randomized directions:
-    - Horizontal (Left to Right)
-    - Vertical (Top to Bottom)
-    - Diagonal Down-Right (Top-Left to Bottom-Right)
-    - Diagonal Up-Right (Bottom-Left to Top-Right)
+    """Generates a grid placing words in randomized directions:
+
+    Horizontal, Vertical, and Diagonals.
     """
     grid = [["" for _ in range(grid_size)] for _ in range(grid_size)]
     placed_positions = {}
 
-    # Define directional vectors: (row_delta, col_delta)
     DIRECTIONS = [
-        (0, 1),   # Horizontal (Left -> Right)
-        (1, 0),   # Vertical (Top -> Bottom)
-        (1, 1),   # Diagonal Down-Right
-        (-1, 1)   # Diagonal Up-Right
+        (0, 1),  # Horizontal (Left -> Right)
+        (1, 0),  # Vertical (Top -> Bottom)
+        (1, 1),  # Diagonal Down-Right
+        (-1, 1),  # Diagonal Up-Right
     ]
 
     for word in words:
         placed = False
         attempts = 0
-        
+
         while not placed and attempts < 100:
             attempts += 1
             dr, dc = random.choice(DIRECTIONS)
-            
-            # Pick a random starting position
+
             start_r = random.randint(0, grid_size - 1)
             start_c = random.randint(0, grid_size - 1)
-            
-            # Calculate end position to verify boundary fit
+
             end_r = start_r + dr * (len(word) - 1)
             end_c = start_c + dc * (len(word) - 1)
-            
-            # Check if word fits inside grid dimensions
+
             if 0 <= end_r < grid_size and 0 <= end_c < grid_size:
-                # Verify no character collisions
                 can_place = True
                 for i in range(len(word)):
                     r = start_r + dr * i
@@ -114,8 +130,7 @@ def generate_multidirectional_grid(words, grid_size=7):
                     if grid[r][c] != "" and grid[r][c] != word[i]:
                         can_place = False
                         break
-                
-                # Place the word if path is clear
+
                 if can_place:
                     coords = []
                     for i in range(len(word)):
@@ -126,7 +141,7 @@ def generate_multidirectional_grid(words, grid_size=7):
                     placed_positions[word] = coords
                     placed = True
 
-    # Fill all remaining empty cells with random filler letters
+    # Fill remaining empty cells with random uppercase letters
     for r in range(grid_size):
         for c in range(grid_size):
             if grid[r][c] == "":
@@ -134,43 +149,66 @@ def generate_multidirectional_grid(words, grid_size=7):
 
     return grid, placed_positions
 
+
 # Initialize Session States
 GRID_SIZE = 7
 
 if "selected_topic" not in st.session_state:
     st.session_state.selected_topic = "Topic 1: Information Representation"
 
-word_dict = TOPIC_DATA[st.session_state.selected_topic]
-
 if "start_time" not in st.session_state:
     st.session_state.start_time = time.time()
 
+# --- TOP BAR: PLAYER NAME & TOPIC SELECTOR ---
+top_col1, top_col2 = st.columns([1, 3])
+
+with top_col1:
+    player_name = st.text_input(
+        "TYPE NAME", value="Student 1", key="player_name_input"
+    )
+
+with top_col2:
+    new_topic = st.selectbox(
+        "Topic Choice",
+        list(TOPIC_DATA.keys()),
+        index=list(TOPIC_DATA.keys()).index(st.session_state.selected_topic),
+        key="topic_select",
+    )
+
+    # Regenerate grid automatically if topic changes
+    if new_topic != st.session_state.selected_topic:
+        st.session_state.selected_topic = new_topic
+        word_dict = TOPIC_DATA[new_topic]
+        grid, placed_positions = generate_multidirectional_grid(
+            list(word_dict.keys()), GRID_SIZE
+        )
+        st.session_state.grid = grid
+        st.session_state.placed_positions = placed_positions
+        st.session_state.selected_cells = set()
+        st.session_state.start_time = time.time()
+        st.rerun()
+
+word_dict = TOPIC_DATA[st.session_state.selected_topic]
+
 if "grid" not in st.session_state or "placed_positions" not in st.session_state:
-    grid, placed_positions = generate_multidirectional_grid(list(word_dict.keys()), GRID_SIZE)
+    grid, placed_positions = generate_multidirectional_grid(
+        list(word_dict.keys()), GRID_SIZE
+    )
     st.session_state.grid = grid
     st.session_state.placed_positions = placed_positions
 
 if "selected_cells" not in st.session_state:
     st.session_state.selected_cells = set()
 
-# --- TOP BAR: PLAYER NAME & TOPIC SELECTOR ---
-top_col1, top_col2 = st.columns([1, 3])
-
-with top_col1:
-    player_name = st.text_input("TYPE NAME", value="Student 1", key="player_name_input")
-
-with top_col2:
-    selected_topic = st.selectbox("Topic Choice", list(TOPIC_DATA.keys()), key="topic_select")
-
 st.markdown("<br>", unsafe_allow_html=True)
 
-# --- MAIN LAYOUT: PUZZLE GRID (LEFT) & CLUES (RIGHT) ---
+# --- MAIN LAYOUT: PUZZLE GRID & CLUES ---
 col_grid, col_clues = st.columns([1, 1])
 
 # Left Column: Interactive Grid Matrix
 with col_grid:
     st.subheader(f"Puzzle Grid ({GRID_SIZE} × {GRID_SIZE})")
-    
+
     for r in range(GRID_SIZE):
         cols = st.columns(GRID_SIZE)
         for c in range(GRID_SIZE):
@@ -190,24 +228,25 @@ with col_grid:
 # Right Column: Clues List & Control Buttons
 with col_clues:
     st.subheader("Clues & Word Submission")
-    
-    # Display clues starting at 1
+
     for idx, (word, clue) in enumerate(word_dict.items(), start=1):
         st.markdown(f"**{idx}. {clue}**")
         st.markdown("<br>", unsafe_allow_html=True)
 
     st.markdown("---")
 
-    # Wireframe Control Buttons
+    # Action Control Buttons
     ctrl_col1, ctrl_col2, ctrl_col3 = st.columns(3)
-    
+
     with ctrl_col1:
         submit_game = st.button("SUBMIT GAME")
-        
+
     with ctrl_col2:
         if st.button("PLAY / RESTART"):
             st.session_state.start_time = time.time()
-            grid, placed_positions = generate_multidirectional_grid(list(word_dict.keys()), GRID_SIZE)
+            grid, placed_positions = generate_multidirectional_grid(
+                list(word_dict.keys()), GRID_SIZE
+            )
             st.session_state.grid = grid
             st.session_state.placed_positions = placed_positions
             st.session_state.selected_cells = set()
@@ -221,24 +260,51 @@ with col_clues:
     # Verification Logic on Game Submission
     if submit_game:
         elapsed_time = round(time.time() - st.session_state.start_time, 1)
-        
-        # Check if every letter coordinate of each word is highlighted
+
         found_words = 0
         for word, coords in st.session_state.placed_positions.items():
             if all(coord in st.session_state.selected_cells for coord in coords):
                 found_words += 1
 
         total_words = len(word_dict)
-        
+
         if found_words == total_words:
             st.balloons()
-            st.success(f"🎉 Perfect! All {total_words} words found in {elapsed_time}s!")
+            st.success(
+                f"🎉 Perfect! All {total_words} words found in {elapsed_time}s!"
+            )
             try:
                 sheet = init_google_sheet()
                 timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
-                sheet.append_row([player_name, selected_topic, elapsed_time, timestamp])
-                st.info("Score successfully uploaded to Google Sheets Leaderboard!")
+                sheet.append_row(
+                    [
+                        player_name,
+                        st.session_state.selected_topic,
+                        elapsed_time,
+                        timestamp,
+                    ]
+                )
+                st.info(
+                    "Score successfully uploaded to Google Sheets Leaderboard!"
+                )
             except Exception as e:
                 st.error(f"Could not write score to database: {e}")
         else:
-            st.warning(f"You found {found_words}/{total_words} words. Highlight all target word letters on the grid!")
+            st.warning(
+                f"You found {found_words}/{total_words} words. Highlight all target word letters on the grid!"
+            )
+
+# --- LIVE LEADERBOARD DISPLAY ---
+st.markdown("---")
+st.subheader("🏆 Live Leaderboard")
+
+try:
+    sheet = init_google_sheet()
+    records = sheet.get_all_records()
+    if records:
+        df = pd.DataFrame(records)
+        st.dataframe(df, use_container_width=True)
+    else:
+        st.info("No scores submitted yet.")
+except Exception as e:
+    st.caption("Leaderboard loading...")
