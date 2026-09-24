@@ -5,18 +5,18 @@ import gspread
 from google.oauth2.service_account import Credentials
 import streamlit as st
 
-# Configure page settings
+# Configure Streamlit page settings
 st.set_page_config(page_title="CIE 9618 Word Search", page_icon="🧩", layout="wide")
 
-# Apply CSS for square wireframe cells and custom button styling
+# Apply CSS for square wireframe cells and primary highlight states
 st.markdown("""
 <style>
-    /* Compact zero-gap row spacing for exact wireframe look */
+    /* Compact zero-gap row spacing for wireframe grid */
     div[data-testid="stHorizontalBlock"] {
         gap: 0px !important;
     }
     
-    /* Grid cell buttons styled as border-touching squares */
+    /* Style grid cell buttons as square boxes */
     div.stButton > button {
         width: 100% !important;
         aspect-ratio: 1 / 1 !important;
@@ -38,7 +38,7 @@ st.markdown("""
         border: 2px solid #000000 !important;
     }
 
-    /* Hover animation */
+    /* Hover effect */
     div.stButton > button:hover {
         background-color: #e0e0e0 !important;
         border-color: #000000 !important;
@@ -46,7 +46,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Google Sheets API Authentication
+# Google Sheets API Authentication setup
 SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets",
     "https://www.googleapis.com/auth/drive"
@@ -60,7 +60,7 @@ def init_google_sheet():
     client = gspread.authorize(creds)
     return client.open("CIE-Leaderscore-Board").worksheet("COMPSCI")
 
-# Vocabulary & Clues Dictionary
+# Vocabulary & Clues Database
 TOPIC_DATA = {
     "Topic 1: Information Representation": {
         "MEDIA": "Composed of sound and images.",
@@ -69,26 +69,64 @@ TOPIC_DATA = {
     }
 }
 
-def generate_guaranteed_grid(words, grid_size=7):
-    """Guarantees every target word is accurately placed inside the N x N grid."""
+def generate_multidirectional_grid(words, grid_size=7):
+    """
+    Generates a grid placing words in randomized directions:
+    - Horizontal (Left to Right)
+    - Vertical (Top to Bottom)
+    - Diagonal Down-Right (Top-Left to Bottom-Right)
+    - Diagonal Up-Right (Bottom-Left to Top-Right)
+    """
     grid = [["" for _ in range(grid_size)] for _ in range(grid_size)]
-    placed_positions = {}  # Tracks placed word character coordinates
+    placed_positions = {}
 
-    # Place each word horizontally on a separate row
-    for row_idx, word in enumerate(words):
-        if row_idx < grid_size:
-            max_col = grid_size - len(word)
-            start_col = random.randint(0, max_col)
-            
-            coords = []
-            for c_offset, letter in enumerate(word):
-                r, c = row_idx, start_col + c_offset
-                grid[r][c] = letter
-                coords.append((r, c))
-            
-            placed_positions[word] = coords
+    # Define directional vectors: (row_delta, col_delta)
+    DIRECTIONS = [
+        (0, 1),   # Horizontal (Left -> Right)
+        (1, 0),   # Vertical (Top -> Bottom)
+        (1, 1),   # Diagonal Down-Right
+        (-1, 1)   # Diagonal Up-Right
+    ]
 
-    # Fill all remaining empty matrix spots with random uppercase letters
+    for word in words:
+        placed = False
+        attempts = 0
+        
+        while not placed and attempts < 100:
+            attempts += 1
+            dr, dc = random.choice(DIRECTIONS)
+            
+            # Pick a random starting position
+            start_r = random.randint(0, grid_size - 1)
+            start_c = random.randint(0, grid_size - 1)
+            
+            # Calculate end position to verify boundary fit
+            end_r = start_r + dr * (len(word) - 1)
+            end_c = start_c + dc * (len(word) - 1)
+            
+            # Check if word fits inside grid dimensions
+            if 0 <= end_r < grid_size and 0 <= end_c < grid_size:
+                # Verify no character collisions
+                can_place = True
+                for i in range(len(word)):
+                    r = start_r + dr * i
+                    c = start_c + dc * i
+                    if grid[r][c] != "" and grid[r][c] != word[i]:
+                        can_place = False
+                        break
+                
+                # Place the word if path is clear
+                if can_place:
+                    coords = []
+                    for i in range(len(word)):
+                        r = start_r + dr * i
+                        c = start_c + dc * i
+                        grid[r][c] = word[i]
+                        coords.append((r, c))
+                    placed_positions[word] = coords
+                    placed = True
+
+    # Fill all remaining empty cells with random filler letters
     for r in range(grid_size):
         for c in range(grid_size):
             if grid[r][c] == "":
@@ -108,14 +146,14 @@ if "start_time" not in st.session_state:
     st.session_state.start_time = time.time()
 
 if "grid" not in st.session_state or "placed_positions" not in st.session_state:
-    grid, placed_positions = generate_guaranteed_grid(list(word_dict.keys()), GRID_SIZE)
+    grid, placed_positions = generate_multidirectional_grid(list(word_dict.keys()), GRID_SIZE)
     st.session_state.grid = grid
     st.session_state.placed_positions = placed_positions
 
 if "selected_cells" not in st.session_state:
     st.session_state.selected_cells = set()
 
-# --- TOP BAR: NAME & TOPIC SELECTOR ---
+# --- TOP BAR: PLAYER NAME & TOPIC SELECTOR ---
 top_col1, top_col2 = st.columns([1, 3])
 
 with top_col1:
@@ -126,10 +164,10 @@ with top_col2:
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# --- MAIN SECTION: PUZZLE GRID & CLUES LIST ---
+# --- MAIN LAYOUT: PUZZLE GRID (LEFT) & CLUES (RIGHT) ---
 col_grid, col_clues = st.columns([1, 1])
 
-# Left Column: Square Grid Matrix
+# Left Column: Interactive Grid Matrix
 with col_grid:
     st.subheader(f"Puzzle Grid ({GRID_SIZE} × {GRID_SIZE})")
     
@@ -153,7 +191,7 @@ with col_grid:
 with col_clues:
     st.subheader("Clues & Word Submission")
     
-    # Render numbering starting at 1 (removed text input boxes)
+    # Display clues starting at 1
     for idx, (word, clue) in enumerate(word_dict.items(), start=1):
         st.markdown(f"**{idx}. {clue}**")
         st.markdown("<br>", unsafe_allow_html=True)
@@ -169,7 +207,7 @@ with col_clues:
     with ctrl_col2:
         if st.button("PLAY / RESTART"):
             st.session_state.start_time = time.time()
-            grid, placed_positions = generate_guaranteed_grid(list(word_dict.keys()), GRID_SIZE)
+            grid, placed_positions = generate_multidirectional_grid(list(word_dict.keys()), GRID_SIZE)
             st.session_state.grid = grid
             st.session_state.placed_positions = placed_positions
             st.session_state.selected_cells = set()
@@ -180,11 +218,11 @@ with col_clues:
             st.session_state.selected_cells = set()
             st.rerun()
 
-    # Automatic Verification Logic
+    # Verification Logic on Game Submission
     if submit_game:
         elapsed_time = round(time.time() - st.session_state.start_time, 1)
         
-        # Verify if all coordinates for each word are highlighted
+        # Check if every letter coordinate of each word is highlighted
         found_words = 0
         for word, coords in st.session_state.placed_positions.items():
             if all(coord in st.session_state.selected_cells for coord in coords):
@@ -194,13 +232,13 @@ with col_clues:
         
         if found_words == total_words:
             st.balloons()
-            st.success(f"🎉 Perfect! All {total_words} words highlighted correctly in {elapsed_time}s!")
+            st.success(f"🎉 Perfect! All {total_words} words found in {elapsed_time}s!")
             try:
                 sheet = init_google_sheet()
                 timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
                 sheet.append_row([player_name, selected_topic, elapsed_time, timestamp])
-                st.info("Score recorded on Google Sheets Leaderboard!")
+                st.info("Score successfully uploaded to Google Sheets Leaderboard!")
             except Exception as e:
-                st.error(f"Could not connect to database: {e}")
+                st.error(f"Could not write score to database: {e}")
         else:
-            st.warning(f"You found {found_words}/{total_words} words. Highlight all target letters on the grid!")
+            st.warning(f"You found {found_words}/{total_words} words. Highlight all target word letters on the grid!")
