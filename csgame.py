@@ -318,13 +318,7 @@ def generate_multidirectional_grid(words, grid_size=10):
     grid = [["" for _ in range(grid_size)] for _ in range(grid_size)]
     placed_positions = {}
 
-    # Multi-directional vectors: (row_delta, col_delta)
-    DIRECTIONS = [
-        (0, 1),   # Horizontal (Left -> Right)
-        (1, 0),   # Vertical (Top -> Bottom)
-        (1, 1),   # Diagonal Down-Right
-        (-1, 1),  # Diagonal Up-Right
-    ]
+    DIRECTIONS = [(0, 1), (1, 0), (1, 1), (-1, 1)]
 
     for word in words:
         placed = False
@@ -340,7 +334,6 @@ def generate_multidirectional_grid(words, grid_size=10):
             end_r = start_r + dr * (len(word) - 1)
             end_c = start_c + dc * (len(word) - 1)
 
-            # Ensure word fits inside boundary
             if 0 <= end_r < grid_size and 0 <= end_c < grid_size:
                 can_place = True
                 for i in range(len(word)):
@@ -360,7 +353,6 @@ def generate_multidirectional_grid(words, grid_size=10):
                     placed_positions[word] = coords
                     placed = True
 
-    # Fill remaining empty cells with random uppercase letters
     for r in range(grid_size):
         for c in range(grid_size):
             if grid[r][c] == "":
@@ -379,6 +371,9 @@ if "selected_topic" not in st.session_state:
 if "start_time" not in st.session_state:
     st.session_state.start_time = time.time()
 
+if "submitted" not in st.session_state:
+    st.session_state.submitted = False
+
 # --- TOP HEADER BAR: PLAYER NAME & TOPIC DROPDOWN ---
 top_col1, top_col2 = st.columns([1, 3])
 
@@ -395,7 +390,6 @@ with top_col2:
         key="topic_select",
     )
 
-    # Automatic state reset if the user switches chapters
     if new_topic != st.session_state.selected_topic:
         st.session_state.selected_topic = new_topic
         word_dict = TOPIC_DATA[new_topic]
@@ -406,6 +400,7 @@ with top_col2:
         st.session_state.placed_positions = placed_positions
         st.session_state.selected_cells = set()
         st.session_state.start_time = time.time()
+        st.session_state.submitted = False
         st.rerun()
 
 word_dict = TOPIC_DATA[st.session_state.selected_topic]
@@ -449,8 +444,24 @@ with col_grid:
 with col_clues:
     st.subheader("Clues & Word Submission")
 
+    # Display clues along with green/red answers if the game has been submitted
     for idx, (word, clue) in enumerate(word_dict.items(), start=1):
-        st.markdown(f"**{idx}. {clue}**")
+        if st.session_state.submitted:
+            coords = st.session_state.placed_positions.get(word, [])
+            is_correct = all(
+                coord in st.session_state.selected_cells for coord in coords
+            )
+            color = "#2e7d32" if is_correct else "#d32f2f"  # Green or Red
+            symbol = "✓" if is_correct else "✗"
+            
+            st.markdown(
+                f"**{idx}. {clue}** "
+                f"<span style='color:{color}; font-weight:bold; margin-left:10px;'>"
+                f"→ {word} [{symbol}]</span>",
+                unsafe_allow_html=True,
+            )
+        else:
+            st.markdown(f"**{idx}. {clue}**")
 
     st.markdown("---")
 
@@ -469,6 +480,7 @@ with col_clues:
             st.session_state.grid = grid
             st.session_state.placed_positions = placed_positions
             st.session_state.selected_cells = set()
+            st.session_state.submitted = False
             st.rerun()
 
     with ctrl_col3:
@@ -478,6 +490,7 @@ with col_clues:
 
     # Verification Logic on Game Submission
     if submit_game:
+        st.session_state.submitted = True
         elapsed_time = round(time.time() - st.session_state.start_time, 1)
 
         found_words = 0
@@ -510,32 +523,29 @@ with col_clues:
                 st.error(f"Could not write score to database: {e}")
         else:
             st.warning(
-                f"You found {found_words}/{total_words} words. Highlight all target word letters on the grid!"
+                f"You found {found_words}/{total_words} words. Review the color-coded terms above!"
             )
+        st.rerun()
 
 # --- LIVE LEADERBOARD DISPLAY ---
 st.markdown("---")
 st.subheader("🏆 Live Leaderboard")
 
 try:
-    # Fetch records directly from Google Sheets
     sheet = init_google_sheet()
     records = sheet.get_all_records()
 
     if records:
         df = pd.DataFrame(records)
 
-        # 1. Convert Duration column to numerical values for sorting
         df["Duration (seconds)"] = pd.to_numeric(
             df["Duration (seconds)"], errors="coerce"
         )
 
-        # 2. Sort entries by fastest completion time (ascending)
         df = df.sort_values(by="Duration (seconds)", ascending=True).reset_index(
             drop=True
         )
 
-        # 3. Add custom Rank icons for top players
         def format_rank(index):
             if index == 0:
                 return "🥇 1st"
@@ -548,7 +558,6 @@ try:
 
         df.insert(0, "Rank", [format_rank(i) for i in range(len(df))])
 
-        # 4. Render clean table without raw index column
         st.dataframe(df, use_container_width=True, hide_index=True)
     else:
         st.info("No scores submitted yet.")
