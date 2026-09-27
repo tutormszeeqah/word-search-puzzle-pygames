@@ -52,6 +52,51 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+# Add this right below st.set_page_config() in app_cs.py
+st.markdown(
+    """
+<style>
+    /* 1. Main Application Background (#E5BBFC - Soft Orchid Lavender) */
+    .stApp {
+        background-color: #E5BBFC !important;
+    }
+    
+    /* 2. Title and Subheader Styling */
+    h1, h2, h3 {
+        color: #3A0066 !important; /* Deep purple for high contrast */
+    }
+    
+    /* 3. Wireframe Grid & Cell Button Styling */
+    div[data-testid="stHorizontalBlock"] { 
+        gap: 0px !important; 
+    }
+    
+    /* Grid Box Cells (#C463F8 - Vibrant Purple) */
+    div.stButton > button {
+        width: 100% !important; 
+        aspect-ratio: 1 / 1 !important; 
+        height: auto !important;
+        font-size: 18px !important; 
+        font-weight: 900 !important; 
+        border-radius: 0px !important;
+        border: 1.5px solid #000000 !important; 
+        color: #FFFFFF !important; /* Crisp white text inside cells */
+        background-color: #C463F8 !important; /* Custom Computer Science cell color */
+        padding: 0px !important; 
+        margin: 0px !important;
+    }
+    
+    /* Selected / Highlighted Cells State */
+    div.stButton > button[kind="primary"] {
+        background-color: #FFEB3B !important; /* Bright yellow when selected */
+        color: #000000 !important; 
+        border: 2px solid #000000 !important;
+    }
+</style>
+""",
+    unsafe_allow_html=True,
+)
+
 # Google Sheets API Authentication Scope Setup
 SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets",
