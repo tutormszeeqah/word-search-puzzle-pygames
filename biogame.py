@@ -255,7 +255,7 @@ st.markdown("<br>", unsafe_allow_html=True)
 col_grid, col_clues = st.columns([1, 1])
 
 with col_grid:
-    st.subheader(f"Puzzle Grid ({GRID_SIZE} × {GRID_SIZE})")
+    st.subheader(f"******BIOLOGY WORD PUZZLE******")
     for r in range(GRID_SIZE):
         cols = st.columns(GRID_SIZE)
         for c in range(GRID_SIZE):
