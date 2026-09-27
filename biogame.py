@@ -10,6 +10,46 @@ st.set_page_config(
     page_title="CIE 9700 Biology Word Search", page_icon="🧬", layout="wide"
 )
 
+# Add this right below st.set_page_config() in app_bio.py
+st.markdown(
+    """
+<style>
+    /* Main Background */
+    .stApp {
+        background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%) !important;
+    }
+    
+    /* Title and Subheader Styling */
+    h1, h2, h3 {
+        color: #1b5e20 !important;
+    }
+    
+    /* Wireframe Grid Button Tweaks */
+    div[data-testid="stHorizontalBlock"] { gap: 0px !important; }
+    div.stButton > button {
+        width: 100% !important; 
+        aspect-ratio: 1 / 1 !important; 
+        height: auto !important;
+        font-size: 18px !important; 
+        font-weight: 900 !important; 
+        border-radius: 0px !important;
+        border: 1.5px solid #000000 !important; 
+        color: #000000 !important; 
+        background-color: #ffffff !important;
+        padding: 0px !important; 
+        margin: 0px !important;
+    }
+    div.stButton > button[kind="primary"] {
+        background-color: #ffeb3b !important; 
+        color: #000000 !important; 
+        border: 2px solid #000000 !important;
+    }
+</style>
+""",
+    unsafe_allow_html=True,
+)
+
+
 # Custom CSS for square wireframe grid buttons
 st.markdown(
     """
