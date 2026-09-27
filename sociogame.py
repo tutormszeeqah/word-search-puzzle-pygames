@@ -10,20 +10,46 @@ st.set_page_config(
     page_title="CIE 9699 Sociology Word Search", page_icon="👥", layout="wide"
 )
 
+# Add this right below st.set_page_config() in app_soc.py
 st.markdown(
     """
 <style>
-    div[data-testid="stHorizontalBlock"] { gap: 0px !important; }
+    /* 1. Main Application Background (#BBC5FC - Soft Periwinkle Blue) */
+    .stApp {
+        background-color: #BBC5FC !important;
+    }
+    
+    /* 2. Title and Subheader Styling */
+    h1, h2, h3 {
+        color: #1A237E !important; /* Deep indigo for strong contrast */
+    }
+    
+    /* 3. Wireframe Grid & Cell Button Styling */
+    div[data-testid="stHorizontalBlock"] { 
+        gap: 0px !important; 
+    }
+    
+    /* Grid Box Cells (#6379F8 - Vivid Royal Blue) */
     div.stButton > button {
-        width: 100% !important; aspect-ratio: 1 / 1 !important; height: auto !important;
-        font-size: 18px !important; font-weight: 900 !important; border-radius: 0px !important;
-        border: 1.5px solid #000000 !important; color: #000000 !important; background-color: #ffffff !important;
-        padding: 0px !important; margin: 0px !important;
+        width: 100% !important; 
+        aspect-ratio: 1 / 1 !important; 
+        height: auto !important;
+        font-size: 18px !important; 
+        font-weight: 900 !important; 
+        border-radius: 0px !important;
+        border: 1.5px solid #000000 !important; 
+        color: #FFFFFF !important; /* Crisp white text inside cells */
+        background-color: #6379F8 !important; /* Custom Sociology cell color */
+        padding: 0px !important; 
+        margin: 0px !important;
     }
+    
+    /* Selected / Highlighted Cells State */
     div.stButton > button[kind="primary"] {
-        background-color: #ffeb3b !important; color: #000000 !important; border: 2px solid #000000 !important;
+        background-color: #FFEB3B !important; /* Bright yellow when selected */
+        color: #000000 !important; 
+        border: 2px solid #000000 !important;
     }
-    div.stButton > button:hover { background-color: #e0e0e0 !important; border-color: #000000 !important; }
 </style>
 """,
     unsafe_allow_html=True,
@@ -34,7 +60,6 @@ SCOPES = [
     "https://www.googleapis.com/auth/drive",
 ]
 
-
 @st.cache_resource
 def init_google_sheet():
     """Connects to SOCIO tab on Google Sheets."""
@@ -42,7 +67,6 @@ def init_google_sheet():
     creds = Credentials.from_service_account_info(creds_dict, scopes=SCOPES)
     client = gspread.authorize(creds)
     return client.open("CIE-Leaderscore-Board").worksheet("SOCIO")
-
 
 TOPIC_DATA = {
     "Socialisation & Identity": {
@@ -107,7 +131,6 @@ TOPIC_DATA = {
     },
 }
 
-
 def generate_multidirectional_grid(words, grid_size=10):
     grid = [["" for _ in range(grid_size)] for _ in range(grid_size)]
     placed_positions = {}
@@ -149,13 +172,11 @@ def generate_multidirectional_grid(words, grid_size=10):
                 grid[r][c] = random.choice(string.ascii_uppercase)
     return grid, placed_positions
 
-
 def check_word_found(word, grid, selected_cells):
     if not selected_cells:
         return False
     selected_letters = "".join(grid[r][c] for r, c in selected_cells)
     return word in selected_letters or word[::-1] in selected_letters
-
 
 GRID_SIZE = 10
 
@@ -208,7 +229,7 @@ st.markdown("<br>", unsafe_allow_html=True)
 col_grid, col_clues = st.columns([1, 1])
 
 with col_grid:
-    st.subheader(f"Puzzle Grid ({GRID_SIZE} × {GRID_SIZE})")
+    st.subheader(f"SOCIOLOGY WORD PUZZLE")
     for r in range(GRID_SIZE):
         cols = st.columns(GRID_SIZE)
         for c in range(GRID_SIZE):
