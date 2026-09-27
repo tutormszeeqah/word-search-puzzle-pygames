@@ -53,6 +53,50 @@ SCOPES = [
     "https://www.googleapis.com/auth/drive",
 ]
 
+# Add this right below st.set_page_config() in app_geo.py
+st.markdown(
+    """
+<style>
+    /* 1. Main Application Background (#FCF0BB - Warm Pastel Yellow) */
+    .stApp {
+        background-color: #FCF0BB !important;
+    }
+    
+    /* 2. Title and Subheader Styling */
+    h1, h2, h3 {
+        color: #4A3B00 !important; /* Deep bronze for crisp text contrast */
+    }
+    
+    /* 3. Wireframe Grid & Cell Button Styling */
+    div[data-testid="stHorizontalBlock"] { 
+        gap: 0px !important; 
+    }
+    
+    /* Grid Box Cells (#C8A509 - Rich Golden Yellow) */
+    div.stButton > button {
+        width: 100% !important; 
+        aspect-ratio: 1 / 1 !important; 
+        height: auto !important;
+        font-size: 18px !important; 
+        font-weight: 900 !important; 
+        border-radius: 0px !important;
+        border: 1.5px solid #000000 !important; 
+        color: #FFFFFF !important; /* High-contrast white letters */
+        background-color: #C8A509 !important; /* Custom Geography cell color */
+        padding: 0px !important; 
+        margin: 0px !important;
+    }
+    
+    /* Selected / Highlighted Cells State */
+    div.stButton > button[kind="primary"] {
+        background-color: #FFEB3B !important; /* Bright yellow when selected */
+        color: #000000 !important; 
+        border: 2px solid #000000 !important;
+    }
+</style>
+""",
+    unsafe_allow_html=True,
+)
 
 @st.cache_resource
 def init_google_sheet():
@@ -61,7 +105,6 @@ def init_google_sheet():
     creds = Credentials.from_service_account_info(creds_dict, scopes=SCOPES)
     client = gspread.authorize(creds)
     return client.open("CIE-Leaderscore-Board").worksheet("GEOG")
-
 
 # CIE 9696 Geography Syllabus Dataset
 TOPIC_DATA = {
@@ -139,7 +182,6 @@ TOPIC_DATA = {
     },
 }
 
-
 def generate_multidirectional_grid(words, grid_size=10):
     """Generates grid with longest words placed first."""
     grid = [["" for _ in range(grid_size)] for _ in range(grid_size)]
@@ -185,14 +227,12 @@ def generate_multidirectional_grid(words, grid_size=10):
 
     return grid, placed_positions
 
-
 def check_word_found(word, grid, selected_cells):
     """Flexible check confirming if selected cells spell word."""
     if not selected_cells:
         return False
     selected_letters = "".join(grid[r][c] for r, c in selected_cells)
     return word in selected_letters or word[::-1] in selected_letters
-
 
 GRID_SIZE = 10
 
@@ -250,7 +290,7 @@ st.markdown("<br>", unsafe_allow_html=True)
 col_grid, col_clues = st.columns([1, 1])
 
 with col_grid:
-    st.subheader(f"Puzzle Grid ({GRID_SIZE} × {GRID_SIZE})")
+    st.subheader(f"GEOGRAPHY WORD PUZZLE")
     for r in range(GRID_SIZE):
         cols = st.columns(GRID_SIZE)
         for c in range(GRID_SIZE):
