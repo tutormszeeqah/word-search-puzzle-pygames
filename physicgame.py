@@ -10,20 +10,46 @@ st.set_page_config(
     page_title="CIE 9702 Physics Word Search", page_icon="⚡", layout="wide"
 )
 
+# Add this right below st.set_page_config() in app_phy.py
 st.markdown(
     """
 <style>
-    div[data-testid="stHorizontalBlock"] { gap: 0px !important; }
+    /* 1. Main Application Background (#8FFAA8 - Vibrant Light Green) */
+    .stApp {
+        background-color: #8FFAA8 !important;
+    }
+    
+    /* 2. Title and Subheader Styling */
+    h1, h2, h3 {
+        color: #004D1A !important; /* Deep green for contrast */
+    }
+    
+    /* 3. Wireframe Grid & Cell Button Styling */
+    div[data-testid="stHorizontalBlock"] { 
+        gap: 0px !important; 
+    }
+    
+    /* Grid Box Cells (#09C836 - Vivid Emerald Green) */
     div.stButton > button {
-        width: 100% !important; aspect-ratio: 1 / 1 !important; height: auto !important;
-        font-size: 18px !important; font-weight: 900 !important; border-radius: 0px !important;
-        border: 1.5px solid #000000 !important; color: #000000 !important; background-color: #ffffff !important;
-        padding: 0px !important; margin: 0px !important;
+        width: 100% !important; 
+        aspect-ratio: 1 / 1 !important; 
+        height: auto !important;
+        font-size: 18px !important; 
+        font-weight: 900 !important; 
+        border-radius: 0px !important;
+        border: 1.5px solid #000000 !important; 
+        color: #FFFFFF !important; /* High-contrast white letters */
+        background-color: #09C836 !important; /* Custom Physics cell color */
+        padding: 0px !important; 
+        margin: 0px !important;
     }
+    
+    /* Selected / Highlighted Cells State */
     div.stButton > button[kind="primary"] {
-        background-color: #ffeb3b !important; color: #000000 !important; border: 2px solid #000000 !important;
+        background-color: #FFEB3B !important; /* Bright yellow when selected */
+        color: #000000 !important; 
+        border: 2px solid #000000 !important;
     }
-    div.stButton > button:hover { background-color: #e0e0e0 !important; border-color: #000000 !important; }
 </style>
 """,
     unsafe_allow_html=True,
@@ -208,7 +234,7 @@ st.markdown("<br>", unsafe_allow_html=True)
 col_grid, col_clues = st.columns([1, 1])
 
 with col_grid:
-    st.subheader(f"Puzzle Grid ({GRID_SIZE} × {GRID_SIZE})")
+    st.subheader(f"PHYSICS WORD PUZZLE")
     for r in range(GRID_SIZE):
         cols = st.columns(GRID_SIZE)
         for c in range(GRID_SIZE):
