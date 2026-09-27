@@ -14,18 +14,22 @@ st.set_page_config(
 st.markdown(
     """
 <style>
-    /* Main Background */
+    /* 1. Main Background (#FCC6BB) */
     .stApp {
-        background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%) !important;
+        background-color: #FCC6BB !important;
     }
     
-    /* Title and Subheader Styling */
+    /* 2. Title and Subheader Styling */
     h1, h2, h3 {
-        color: #1b5e20 !important;
+        color: #8B0000 !important; /* Dark contrast title text */
     }
     
-    /* Wireframe Grid Button Tweaks */
-    div[data-testid="stHorizontalBlock"] { gap: 0px !important; }
+    /* 3. Wireframe Grid & Cell Button Styling */
+    div[data-testid="stHorizontalBlock"] { 
+        gap: 0px !important; 
+    }
+    
+    /* Grid Box Cells (#F54927) */
     div.stButton > button {
         width: 100% !important; 
         aspect-ratio: 1 / 1 !important; 
@@ -34,13 +38,15 @@ st.markdown(
         font-weight: 900 !important; 
         border-radius: 0px !important;
         border: 1.5px solid #000000 !important; 
-        color: #000000 !important; 
-        background-color: #ffffff !important;
+        color: #FFFFFF !important; /* Crisp white text inside cells */
+        background-color: #F54927 !important; /* Custom cell color */
         padding: 0px !important; 
         margin: 0px !important;
     }
+    
+    /* Selected / Highlighted Cells State */
     div.stButton > button[kind="primary"] {
-        background-color: #ffeb3b !important; 
+        background-color: #FFEB3B !important; /* Bright yellow when selected */
         color: #000000 !important; 
         border: 2px solid #000000 !important;
     }
