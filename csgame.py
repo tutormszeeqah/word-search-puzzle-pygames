@@ -467,7 +467,7 @@ col_grid, col_clues = st.columns([1, 1])
 
 # Left Column: Interactive Grid Buttons
 with col_grid:
-    st.subheader(f"Puzzle Grid ({GRID_SIZE} × {GRID_SIZE})")
+    st.subheader(f"COMPUTER SCIENCE WORD PUZZLE")
 
     for r in range(GRID_SIZE):
         cols = st.columns(GRID_SIZE)
