@@ -9,6 +9,50 @@ import streamlit as st
 st.set_page_config(
     page_title="CIE 9701 Chemistry Word Search", page_icon="🧪", layout="wide"
 )
+# Add this right below st.set_page_config() in app_chem.py
+st.markdown(
+    """
+<style>
+    /* 1. Main Background (#E7F9FE) */
+    .stApp {
+        background-color: #E7F9FE !important;
+    }
+    
+    /* 2. Title and Subheader Styling */
+    h1, h2, h3 {
+        color: #003366 !important; /* Deep navy contrast title text */
+    }
+    
+    /* 3. Wireframe Grid & Cell Button Styling */
+    div[data-testid="stHorizontalBlock"] { 
+        gap: 0px !important; 
+    }
+    
+    /* Grid Box Cells (#09A2C8) */
+    div.stButton > button {
+        width: 100% !important; 
+        aspect-ratio: 1 / 1 !important; 
+        height: auto !important;
+        font-size: 18px !important; 
+        font-weight: 900 !important; 
+        border-radius: 0px !important;
+        border: 1.5px solid #000000 !important; 
+        color: #FFFFFF !important; /* Crisp white text inside cells */
+        background-color: #09A2C8 !important; /* Custom chemistry cell color */
+        padding: 0px !important; 
+        margin: 0px !important;
+    }
+    
+    /* Selected / Highlighted Cells State */
+    div.stButton > button[kind="primary"] {
+        background-color: #FFEB3B !important; /* Bright yellow when selected */
+        color: #000000 !important; 
+        border: 2px solid #000000 !important;
+    }
+</style>
+""",
+    unsafe_allow_html=True,
+)
 
 st.markdown(
     """
@@ -208,7 +252,7 @@ st.markdown("<br>", unsafe_allow_html=True)
 col_grid, col_clues = st.columns([1, 1])
 
 with col_grid:
-    st.subheader(f"Puzzle Grid ({GRID_SIZE} × {GRID_SIZE})")
+    st.subheader(f"CHEMISTRY WORD PUZZLE")
     for r in range(GRID_SIZE):
         cols = st.columns(GRID_SIZE)
         for c in range(GRID_SIZE):
